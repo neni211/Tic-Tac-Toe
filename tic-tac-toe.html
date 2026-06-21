@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tic Tac Toe vs Bot</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 20px;
+  }
+  h1 { margin-bottom: 8px; font-weight: 600; }
+  .status {
+    margin-bottom: 20px;
+    font-size: 18px;
+    min-height: 27px;
+    color: #a0a0c0;
+  }
+  .status.win  { color: #4ade80; font-weight: 600; }
+  .status.lose { color: #f87171; font-weight: 600; }
+  .status.draw { color: #fbbf24; font-weight: 600; }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 100px);
+    grid-template-rows: repeat(3, 100px);
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .cell {
+    background: #16213e;
+    border: none;
+    border-radius: 8px;
+    color: #eee;
+    font-size: 48px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cell:hover:not(.taken) { background: #1f2a4a; }
+  .cell:active:not(.taken) { transform: scale(0.95); }
+  .cell.taken { cursor: not-allowed; }
+  .cell.x { color: #60a5fa; }
+  .cell.o { color: #f472b6; }
+  .cell.winner { background: #2d4a3e; animation: pulse 0.6s ease; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+  button.reset {
+    background: #4f46e5;
+    color: white;
+    border: none;
+    padding: 12px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button.reset:hover { background: #4338ca; }
+  .score {
+    margin-top: 18px;
+    font-size: 14px;
+    color: #888;
+    display: flex;
+    gap: 24px;
+  }
+  .score span b { color: #eee; }
+</style>
+</head>
+<body>
+  <h1>Tic Tac Toe</h1>
+  <div class="status" id="status">Your turn (X)</div>
+  <div class="board" id="board">
+    <button class="cell" data-i="0"></button>
+    <button class="cell" data-i="1"></button>
+    <button class="cell" data-i="2"></button>
+    <button class="cell" data-i="3"></button>
+    <button class="cell" data-i="4"></button>
+    <button class="cell" data-i="5"></button>
+    <button class="cell" data-i="6"></button>
+    <button class="cell" data-i="7"></button>
+    <button class="cell" data-i="8"></button>
+  </div>
+  <button class="reset" id="reset">New Game</button>
+  <div class="score">
+    <span>You: <b id="scoreP">0</b></span>
+    <span>Bot: <b id="scoreB">0</b></span>
+    <span>Draws: <b id="scoreD">0</b></span>
+  </div>
+
+<script>
+  const HUMAN = 'X', BOT = 'O';
+  const LINES = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  const cells    = document.querySelectorAll('.cell');
+  const statusEl = document.getElementById('status');
+  const resetBtn = document.getElementById('reset');
+  const scoreP   = document.getElementById('scoreP');
+  const scoreB   = document.getElementById('scoreB');
+  const scoreD   = document.getElementById('scoreD');
+
+  let board, gameOver, scores = { p: 0, b: 0, d: 0 };
+
+  function start() {
+    board = Array(9).fill(null);
+    gameOver = false;
+    cells.forEach(c => { c.textContent = ''; c.className = 'cell'; });
+    statusEl.textContent = 'Your turn (X)';
+    statusEl.className = 'status';
+  }
+
+  function winner(b) {
+    for (const [a, c, d] of LINES) {
+      if (b[a] && b[a] === b[c] && b[a] === b[d]) return { player: b[a], line: [a, c, d] };
+    }
+    return null;
+  }
+
+  function empty(b) { return b.map((v, i) => v ? null : i).filter(v => v !== null); }
+
+  // Minimax — unbeatable bot
+  function minimax(b, isMax) {
+    const w = winner(b);
+    if (w) return w.player === BOT ? 10 : -10;
+    if (empty(b).length === 0) return 0;
+    let best = isMax ? -Infinity : Infinity;
+    for (const i of empty(b)) {
+      b[i] = isMax ? BOT : HUMAN;
+      const score = minimax(b, !isMax);
+      b[i] = null;
+      best = isMax ? Math.max(best, score) : Math.min(best, score);
+    }
+    return best;
+  }
+
+  function botMove() {
+    let bestScore = -Infinity, bestMove = null;
+    for (const i of empty(board)) {
+      board[i] = BOT;
+      const score = minimax(board, false);
+      board[i] = null;
+      if (score > bestScore) { bestScore = score; bestMove = i; }
+    }
+    if (bestMove !== null) {
+      board[bestMove] = BOT;
+      cells[bestMove].textContent = BOT;
+      cells[bestMove].classList.add('taken', 'o');
+    }
+  }
+
+  function endGame(result) {
+    gameOver = true;
+    if (result === 'draw') {
+      statusEl.textContent = "It's a draw!";
+      statusEl.className = 'status draw';
+      scores.d++;
+    } else if (result.player === HUMAN) {
+      statusEl.textContent = 'You win!';
+      statusEl.className = 'status win';
+      scores.p++;
+      result.line.forEach(i => cells[i].classList.add('winner'));
+    } else {
+      statusEl.textContent = 'Bot wins!';
+      statusEl.className = 'status lose';
+      scores.b++;
+      result.line.forEach(i => cells[i].classList.add('winner'));
+    }
+    scoreP.textContent = scores.p;
+    scoreB.textContent = scores.b;
+    scoreD.textContent = scores.d;
+  }
+
+  function handleClick(e) {
+    if (gameOver) return;
+    const i = +e.target.dataset.i;
+    if (board[i]) return;
+    board[i] = HUMAN;
+    e.target.textContent = HUMAN;
+    e.target.classList.add('taken', 'x');
+    let w = winner(board);
+    if (w) return endGame(w);
+    if (empty(board).length === 0) return endGame('draw');
+    statusEl.textContent = 'Bot thinking…';
+    statusEl.className = 'status';
+    setTimeout(() => {
+      botMove();
+      w = winner(board);
+      if (w) return endGame(w);
+      if (empty(board).length === 0) return endGame('draw');
+      statusEl.textContent = 'Your turn (X)';
+    }, 300);
+  }
+
+  cells.forEach(c => c.addEventListener('click', handleClick));
+  resetBtn.addEventListener('click', start);
+  start();
+</script>
+</body>
+</html>
